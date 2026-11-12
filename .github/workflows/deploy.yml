@@ -1,36 +1,49 @@
-﻿name: Deploy to Vercel
+name: Deploy to Vercel
 
 # Push-to-deploy for the self-hosted umami instance.
 #
-# This workflow exists because the Vercel project cannot be linked to the
-# GitHub repository without a Vercel "Login Connection" (an OAuth grant
-# that only the account holder can complete in a browser). This workflow
-# gets the same result — a push to main redeploys production — using a
-# plain Vercel API token instead of the GitHub integration.
+# Why this exists: the Vercel project cannot be linked to this repository
+# through the GitHub integration, because that requires a Vercel "Login
+# Connection" - an OAuth grant only the account holder can complete in a
+# browser. This workflow delivers the same outcome (a push to main
+# redeploys production) with a plain Vercel API token instead.
 #
-# Required secret: VERCEL_TOKEN (a Vercel API token with deploy rights).
-# Set it once with:
-#   gh secret set VERCEL_TOKEN --repo weddingaivideo/umami
+# How it works:
+#   vercel pull     - writes .vercel/project.json so the CLI knows which
+#                      project to target (no Vercel GitHub App needed).
+#   vercel deploy   - uploads the source and lets Vercel's own builders
+#                      build it. The project's real environment variables
+#                      (DATABASE_URL, DIRECT_DATABASE_URL, APP_SECRET,
+#                      TWO_FACTOR_ENCRYPTION_KEY) are applied server-side
+#                      by Vercel, so nothing sensitive is needed in CI
+#                      beyond the deploy token.
+#
+# Required:
+#   secret  VERCEL_TOKEN       - Vercel API token with deploy rights
+#   vars    VERCEL_ORG_ID      - team id
+#   vars    VERCEL_PROJECT_ID  - project id
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
     name: Deploy umami to Vercel
     runs-on: ubuntu-latest
     environment: production
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
       - name: Deploy to Vercel
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
         run: |
-          npx --yes vercel@65.14.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx --yes vercel@65.14.0 build --token="$VERCEL_TOKEN" --prod
-          npx --yes vercel@65.14.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          npx --yes vercel@65.14.0 pull --yes --environment=production
+          npx --yes vercel@65.14.0 deploy --prod --yes
