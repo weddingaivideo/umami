@@ -1,0 +1,36 @@
+﻿name: Deploy to Vercel
+
+# Push-to-deploy for the self-hosted umami instance.
+#
+# This workflow exists because the Vercel project cannot be linked to the
+# GitHub repository without a Vercel "Login Connection" (an OAuth grant
+# that only the account holder can complete in a browser). This workflow
+# gets the same result — a push to main redeploys production — using a
+# plain Vercel API token instead of the GitHub integration.
+#
+# Required secret: VERCEL_TOKEN (a Vercel API token with deploy rights).
+# Set it once with:
+#   gh secret set VERCEL_TOKEN --repo weddingaivideo/umami
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy umami to Vercel
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          npx --yes vercel@65.14.0 pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@65.14.0 build --token="$VERCEL_TOKEN" --prod
+          npx --yes vercel@65.14.0 deploy --prebuilt --prod --token="$VERCEL_TOKEN"
